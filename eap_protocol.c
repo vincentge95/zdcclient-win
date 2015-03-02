@@ -15,11 +15,11 @@
  *
  * =====================================================================================
  */
-#include        <assert.h>
-#include        "eap_protocol.h"
-//#include      "zruijie.h"
-//#include      "blog.h"
-#include        "md5.h"
+#include 	<assert.h>
+#include	"eap_protocol.h"
+//#include	"zruijie.h"
+//#include	"blog.h"
+#include	"md5.h"
 
 
 static void 
@@ -29,13 +29,13 @@ fill_password_md5(uint8_t attach_key[], uint8_t eap_id);
 
 /* #####   TYPE DEFINITIONS   ######################### */
 /*-----------------------------------------------------------------------------
- *  报文缓冲区，由init_frame函数初始化。
+ *  报文缓冲区
  *-----------------------------------------------------------------------------*/
 uint8_t             eapol_start[18];            /* EAPOL START报文 */
 uint8_t             eapol_logoff[18];           /* EAPOL LogOff报文 */
 uint8_t             eap_response_ident[128]; /* EAP RESPON/IDENTITY报文 */
 uint8_t             eap_response_md5ch[128]; /* EAP RESPON/MD5 报文 */
-uint8_t             eap_life_keeping[128];
+uint8_t             eap_response_idekp[128]; /* EAP RESPON/INDENTITY KEEPALIVE报文 */
 //uint32_t            ruijie_live_serial_num;
 //uint32_t            ruijie_succes_key;
 extern enum STATE   state;
@@ -62,10 +62,10 @@ action_eapol_failre(const struct eap_header *eap_head,
 {
     print_server_info (packet, packetinfo->caplen);
 
-        if (state == ONLINE || state == LOGOFF) {
-                state = READY;
-                pcap_breakloop (handle);
-        }
+	if (state == ONLINE || state == LOGOFF) {
+		state = READY;
+		pcap_breakloop (handle);
+	}
 }
 
 void
@@ -75,7 +75,7 @@ action_eap_req_idnty(const struct eap_header *eap_head,
 {
     if (state == LOGOFF)
         return;
-        state = CONNECTING;
+	state = CONNECTING;
     eap_response_ident[0x13] = eap_head->eap_id;
     send_eap_packet(EAP_RESPONSE_IDENTITY);
 }
@@ -85,7 +85,7 @@ action_eap_req_md5_chg(const struct eap_header *eap_head,
                         const struct pcap_pkthdr *packetinfo,
                         const uint8_t *packet)
 {
-        state = CONNECTING;
+	state = CONNECTING;
     fill_password_md5((uint8_t*)eap_head->eap_md5_challenge, eap_head->eap_id);
     eap_response_md5ch[0x13] = eap_head->eap_id;
     send_eap_packet(EAP_RESPONSE_MD5_CHALLENGE);
@@ -96,8 +96,8 @@ action_eap_keep_alive(const struct eap_header *eap_head,
                         const struct pcap_pkthdr *packetinfo,
                         const uint8_t *packet)
 {
-        state = KEEP_ALIVE;
-    eap_life_keeping[0x13] = eap_head->eap_id;
+	state = KEEP_ALIVE;
+    eap_response_idekp[0x13] = eap_head->eap_id;
     send_eap_packet(EAP_RESPONSE_IDENTITY_KEEP_ALIVE);
 }
 
@@ -125,8 +125,8 @@ send_eap_packet(enum EAPType send_type)
             frame_length = sizeof(eap_response_md5ch);
             break;
         case EAP_RESPONSE_IDENTITY_KEEP_ALIVE:
-            frame_data = eap_life_keeping;
-            frame_length = sizeof(eap_life_keeping);
+            frame_data = eap_response_idekp;
+            frame_length =  sizeof(eap_response_idekp);
             break;
         default:
             return;
@@ -163,6 +163,30 @@ fill_password_md5(uint8_t attach_key[], uint8_t eap_id)
 
 /* 
  * ===  FUNCTION  ======================================================================
+ *         Name:  fill_username_md5
+ *  Description:  给RESPONSE_IDENTITY_KEEP_ALIVE报文填充相应的MD5值。
+ *  只会在接受到REQUEST_IDENTITY_KEEP_ALIVE报文之后才进行，因为需要
+ *  其中的Key
+ * =====================================================================================
+ */
+void fill_username_md5(uint8_t attach_key[]){
+    char *psw_key;
+    char *md5;
+    extern char username[];
+    extern int username_length;
+    psw_key = malloc(username_length + 4);
+    
+    memcpy(psw_key, username,username_length);
+    memcpy(psw_key + username_length, attach_key, 4);
+    
+    md5 = get_md5_digest(psw_key, username_length + 4);
+    memcpy(eap_response_idekp + 14 + 9,md5,16);
+    free (psw_key);
+}
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
  *         Name:  get_md5_digest
  *  Description:  calcuate for md5 digest
  * =====================================================================================
@@ -171,10 +195,10 @@ char*
 get_md5_digest(const char* str, size_t len)
 {
     static md5_byte_t digest[16];
-        md5_state_t state;
-        md5_init(&state);
-        md5_append(&state, (const md5_byte_t *)str, len);
-        md5_finish(&state, digest);
+	md5_state_t state;
+	md5_init(&state);
+	md5_append(&state, (const md5_byte_t *)str, len);
+	md5_finish(&state, digest);
 
     return (char*)digest;
 }
@@ -222,6 +246,7 @@ print_server_info (const uint8_t *packet, u_int packetlength)
     length = length < 512 ? length : 512;
     strncpy (msg_buf, (const char *)str, length);
     msg_buf[length] = '\n';
-        edit_info_append (msg_buf);
+	edit_info_append (msg_buf);
 }
+
 
