@@ -1,9 +1,9 @@
 # Project: zRuijie4GZHU
 # Makefile created by Dev-C++ 4.9.9.2
 
-CPP  = i486-mingw32-g++
-CC   = i486-mingw32-gcc
-WINDRES = i486-mingw32-windres
+CPP  = mingw32-g++
+CC   = mingw32-gcc
+WINDRES = mingw32-windres
 RES  = window.res
 OBJ  = win_main.o eap_protocol.o md5.o zdclient.o $(RES)
 LINKOBJ  = $(OBJ)
